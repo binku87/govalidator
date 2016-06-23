@@ -714,7 +714,6 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value) (bool, e
 		// for each tag option check the map of validator functions
 		for validator, customErrorMessage := range options {
 			var negate bool
-			customMsgExists := (len(customErrorMessage) > 0)
 			// Check wether the tag looks like '!something' or 'something'
 			if validator[0] == '!' {
 				validator = string(validator[1:])
@@ -726,61 +725,16 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value) (bool, e
 				ps := value.FindStringSubmatch(validator)
 				if len(ps) > 0 {
 					if validatefunc, ok := ParamTagMap[key]; ok {
-						switch v.Kind() {
-						case reflect.String:
-							field := fmt.Sprint(v) // make value into string, then validate with regex
-							if result := validatefunc(field, ps[1:]...); (!result && !negate) || (result && negate) {
-								var err error
-								if !negate {
-									if customMsgExists {
-										err = fmt.Errorf(customErrorMessage)
-									} else {
-										err = fmt.Errorf("%s does not validate as %s", field, validator)
-									}
-
-								} else {
-									if customMsgExists {
-										err = fmt.Errorf(customErrorMessage)
-									} else {
-										err = fmt.Errorf("%s does validate as %s", field, validator)
-									}
-								}
-								return false, Error{t.Name, err, customMsgExists}
-							}
-						default:
-							// type not yet supported, fail
-							return false, Error{t.Name, fmt.Errorf("Validator %s doesn't support kind %s", validator, v.Kind()), false}
+						if err := getValidationError(validatefunc(fmt.Sprint(v), ps[1:]...), negate, t, v, validator, customErrorMessage); err != nil {
+							return false, err
 						}
 					}
 				}
 			}
 
 			if validatefunc, ok := TagMap[validator]; ok {
-				switch v.Kind() {
-				case reflect.String:
-					field := fmt.Sprint(v) // make value into string, then validate with regex
-					if result := validatefunc(field); !result && !negate || result && negate {
-						var err error
-
-						if !negate {
-							if customMsgExists {
-								err = fmt.Errorf(customErrorMessage)
-							} else {
-								err = fmt.Errorf("%s does not validate as %s", field, validator)
-							}
-						} else {
-							if customMsgExists {
-								err = fmt.Errorf(customErrorMessage)
-							} else {
-								err = fmt.Errorf("%s does validate as %s", field, validator)
-							}
-						}
-						return false, Error{t.Name, err, customMsgExists}
-					}
-				default:
-					//Not Yet Supported Types (Fail here!)
-					err := fmt.Errorf("Validator %s doesn't support kind %s for value %v", validator, v.Kind(), v)
-					return false, Error{t.Name, err, false}
+				if err := getValidationError(validatefunc(fmt.Sprint(v)), negate, t, v, validator, customErrorMessage); err != nil {
+					return false, err
 				}
 			}
 		}
@@ -801,26 +755,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value) (bool, e
 			result = result && resultItem
 		}
 		return result, nil
-	case reflect.Slice:
-		result := true
-		for i := 0; i < v.Len(); i++ {
-			var resultItem bool
-			var err error
-			if v.Index(i).Kind() != reflect.Struct {
-				resultItem, err = typeCheck(v.Index(i), t, o)
-				if err != nil {
-					return false, err
-				}
-			} else {
-				resultItem, err = ValidateStruct(v.Index(i).Interface())
-				if err != nil {
-					return false, err
-				}
-			}
-			result = result && resultItem
-		}
-		return result, nil
-	case reflect.Array:
+	case reflect.Slice, reflect.Array:
 		result := true
 		for i := 0; i < v.Len(); i++ {
 			var resultItem bool
@@ -856,6 +791,30 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value) (bool, e
 	default:
 		return false, &UnsupportedTypeError{v.Type()}
 	}
+}
+
+func getValidationError(result bool, negate bool, t reflect.StructField, v reflect.Value, validatorKind string, customErrorMessage string) error {
+	customMsgExists := (len(customErrorMessage) > 0)
+	switch v.Kind() {
+	case reflect.String:
+		field := fmt.Sprint(v) // make value into string, then validate with regex
+		if (!result && !negate) || (result && negate) {
+			var err error
+			if customMsgExists {
+				err = fmt.Errorf(customErrorMessage)
+			} else {
+				if !negate {
+					err = fmt.Errorf("%s does not validate as %s", field, validatorKind)
+				} else {
+					err = fmt.Errorf("%s does validate as %s", field, validatorKind)
+				}
+			}
+			return Error{t.Name, err, customMsgExists}
+		}
+	default:
+		return Error{t.Name, fmt.Errorf("Validator %s doesn't support kind %s", validatorKind, v.Kind()), false}
+	}
+	return nil
 }
 
 func isEmptyValue(v reflect.Value) bool {
