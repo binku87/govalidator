@@ -2360,11 +2360,15 @@ func ExampleValidateStruct() {
 
 func TestCustomErrorMessage(t *testing.T) {
 	type User struct {
-		Name   string
+		Name   string `valid:"required"`
 		Email  string `valid:"email"`
 		NotInt string `valid:"!int"`
 		Int    string `valid:"int"`
 	}
+
+	CustomTypeTagMap.SetErrorMessage("required", CustomTypeErrorMessage(func(negate bool, value interface{}) string {
+		return "can't be blank"
+	}))
 
 	CustomTypeTagMap.SetErrorMessage("email", CustomTypeErrorMessage(func(negate bool, value interface{}) string {
 		return fmt.Sprintf("%v isn't a valid email address", value)
@@ -2380,7 +2384,7 @@ func TestCustomErrorMessage(t *testing.T) {
 
 	user := &User{Email: "abc", NotInt: "123", Int: "A1"}
 	_, err := ValidateStruct(user)
-	if err.Error() != "Email: abc isn't a valid email address;NotInt: 123 is a int value;Int: A1 isn't a int value;" {
+	if err.Error() != "Name: can't be blank;Email: abc isn't a valid email address;NotInt: 123 is a int value;Int: A1 isn't a int value;" {
 		t.Errorf("Expected get custome error, but got (%v)", err.Error())
 	}
 }

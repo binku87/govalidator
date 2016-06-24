@@ -651,6 +651,8 @@ func checkRequired(v reflect.Value, t reflect.StructField, options tagOptionsMap
 	if requiredOption, isRequired := options["required"]; isRequired {
 		if len(requiredOption) > 0 {
 			return false, Error{t.Name, fmt.Errorf(requiredOption), true}
+		} else if messageFunc, _ := CustomTypeTagMap.GetErrorMessage("required"); messageFunc != nil {
+			return false, Error{t.Name, fmt.Errorf(messageFunc(false, v.Interface())), false}
 		}
 		return false, Error{t.Name, fmt.Errorf("non zero value required"), false}
 	} else if _, isOptional := options["optional"]; fieldsRequiredByDefault && !isOptional {
