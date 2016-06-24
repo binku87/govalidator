@@ -2357,3 +2357,20 @@ func ExampleValidateStruct() {
 	}
 	println(result)
 }
+
+func TestCustomErrorMessage(t *testing.T) {
+	type User struct {
+		Name  string
+		Email string `valid:"email"`
+	}
+
+	CustomTypeTagMap.SetErrorMessage("email", CustomTypeErrorMessage(func(negate bool, value interface{}) string {
+		return fmt.Sprintf("%v isn't a valid email address", value)
+	}))
+
+	user := &User{Email: "abc"}
+	_, err := ValidateStruct(user)
+	if err.Error() != "Email: abc isn't a valid email address;" {
+		t.Errorf("Expected get custome error, but got (%v)", err.Error())
+	}
+}

@@ -802,6 +802,8 @@ func getValidationError(result bool, negate bool, t reflect.StructField, v refle
 			var err error
 			if customMsgExists {
 				err = fmt.Errorf(customErrorMessage)
+			} else if messageFunc, _ := CustomTypeTagMap.GetErrorMessage(validatorKind); messageFunc != nil {
+				err = fmt.Errorf(messageFunc(negate, v.Interface()))
 			} else {
 				if !negate {
 					err = fmt.Errorf("%s does not validate as %s", field, validatorKind)

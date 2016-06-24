@@ -13,6 +13,8 @@ type Validator func(str string) bool
 // The second parameter should be the context (in the case of validating a struct: the whole object being validated).
 type CustomTypeValidator func(i interface{}, o interface{}) bool
 
+type CustomTypeErrorMessage func(negate bool, value interface{}) string
+
 // ParamValidator is a wrapper for validator functions that accepts additional parameters.
 type ParamValidator func(str string, params ...string) bool
 type tagOptionsMap map[string]string
@@ -41,7 +43,8 @@ var ParamTagRegexMap = map[string]*regexp.Regexp{
 }
 
 type customTypeTagMap struct {
-	validators map[string]CustomTypeValidator
+	validators    map[string]CustomTypeValidator
+	errorMessages map[string]CustomTypeErrorMessage
 
 	sync.RWMutex
 }
@@ -59,10 +62,23 @@ func (tm *customTypeTagMap) Set(name string, ctv CustomTypeValidator) {
 	tm.validators[name] = ctv
 }
 
+func (tm *customTypeTagMap) GetErrorMessage(name string) (CustomTypeErrorMessage, bool) {
+	tm.RLock()
+	defer tm.RUnlock()
+	v, ok := tm.errorMessages[name]
+	return v, ok
+}
+
+func (tm *customTypeTagMap) SetErrorMessage(name string, ctm CustomTypeErrorMessage) {
+	tm.Lock()
+	defer tm.Unlock()
+	tm.errorMessages[name] = ctm
+}
+
 // CustomTypeTagMap is a map of functions that can be used as tags for ValidateStruct function.
 // Use this to validate compound or custom types that need to be handled as a whole, e.g.
 // `type UUID [16]byte` (this would be handled as an array of bytes).
-var CustomTypeTagMap = &customTypeTagMap{validators: make(map[string]CustomTypeValidator)}
+var CustomTypeTagMap = &customTypeTagMap{validators: make(map[string]CustomTypeValidator), errorMessages: make(map[string]CustomTypeErrorMessage)}
 
 // TagMap is a map of functions, that can be used as tags for ValidateStruct function.
 var TagMap = map[string]Validator{
