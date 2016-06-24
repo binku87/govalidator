@@ -13,6 +13,7 @@ type Validator func(str string) bool
 // The second parameter should be the context (in the case of validating a struct: the whole object being validated).
 type CustomTypeValidator func(i interface{}, o interface{}) bool
 
+// CustomTypeErrorMessage is a wrapper for generate message function that returns custom message for one kind of validation.
 type CustomTypeErrorMessage func(negate bool, value interface{}) string
 
 // ParamValidator is a wrapper for validator functions that accepts additional parameters.
@@ -75,7 +76,8 @@ func (tm *customTypeTagMap) SetErrorMessage(name string, ctm CustomTypeErrorMess
 	tm.errorMessages[name] = ctm
 }
 
-// CustomTypeTagMap is a map of functions that can be used as tags for ValidateStruct function.
+// CustomTypeTagMap is a map of functions that can be used as tags for ValidateStruct function
+// and a map of functions that used to generate custom messages for each kind of validators.
 // Use this to validate compound or custom types that need to be handled as a whole, e.g.
 // `type UUID [16]byte` (this would be handled as an array of bytes).
 var CustomTypeTagMap = &customTypeTagMap{validators: make(map[string]CustomTypeValidator), errorMessages: make(map[string]CustomTypeErrorMessage)}
