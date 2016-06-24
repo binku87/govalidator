@@ -689,9 +689,11 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value) (bool, e
 			if result := validatefunc(v.Interface(), o.Interface()); !result {
 				if len(customErrorMessage) > 0 {
 					customTypeErrors = append(customTypeErrors, Error{Name: t.Name, Err: fmt.Errorf(customErrorMessage), CustomErrorMessageExists: true})
-					continue
+				} else if messageFunc, _ := CustomTypeTagMap.GetErrorMessage(validatorName); messageFunc != nil {
+					customTypeErrors = append(customTypeErrors, Error{Name: t.Name, Err: fmt.Errorf(messageFunc(false, v.Interface())), CustomErrorMessageExists: false})
+				} else {
+					customTypeErrors = append(customTypeErrors, Error{Name: t.Name, Err: fmt.Errorf("%s does not validate as %s", fmt.Sprint(v), validatorName), CustomErrorMessageExists: false})
 				}
-				customTypeErrors = append(customTypeErrors, Error{Name: t.Name, Err: fmt.Errorf("%s does not validate as %s", fmt.Sprint(v), validatorName), CustomErrorMessageExists: false})
 			}
 		}
 	}

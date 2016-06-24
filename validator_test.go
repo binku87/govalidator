@@ -2364,7 +2364,19 @@ func TestCustomErrorMessage(t *testing.T) {
 		Email  string `valid:"email"`
 		NotInt string `valid:"!int"`
 		Int    string `valid:"int"`
+		Salary int    `valid:"minSalary"`
 	}
+
+	CustomTypeTagMap.Set("minSalary", CustomTypeValidator(func(value interface{}, o interface{}) bool {
+		if value.(int) < 2000 {
+			return false
+		}
+		return true
+	}))
+
+	CustomTypeTagMap.SetErrorMessage("minSalary", CustomTypeErrorMessage(func(negate bool, value interface{}) string {
+		return "must be large than 2000"
+	}))
 
 	CustomTypeTagMap.SetErrorMessage("required", CustomTypeErrorMessage(func(negate bool, value interface{}) string {
 		return "can't be blank"
@@ -2382,9 +2394,9 @@ func TestCustomErrorMessage(t *testing.T) {
 		}
 	}))
 
-	user := &User{Email: "abc", NotInt: "123", Int: "A1"}
+	user := &User{Email: "abc", NotInt: "123", Int: "A1", Salary: 500}
 	_, err := ValidateStruct(user)
-	if err.Error() != "Name: can't be blank;Email: abc isn't a valid email address;NotInt: 123 is a int value;Int: A1 isn't a int value;" {
+	if err.Error() != "Name: can't be blank;Email: abc isn't a valid email address;NotInt: 123 is a int value;Int: A1 isn't a int value;Salary: must be large than 2000;;" {
 		t.Errorf("Expected get custome error, but got (%v)", err.Error())
 	}
 }
